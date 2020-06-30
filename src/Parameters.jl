@@ -45,7 +45,7 @@ import Base: @__doc__
 import OrderedCollections: OrderedDict
 using UnPack: @unpack, @pack!
 
-export @with_kw, @with_kw_noshow, type2dict, reconstruct, @unpack, @pack!, @pack
+export @with_kw, @with_kw_noshow, type2dict, reconstruct, reconstruct_to, @unpack, @pack!, @pack
 
 ## Parser helpers
 #################
@@ -220,26 +220,54 @@ julia> b = reconstruct(a, b=99)
 A(3, 99)
 ```
 """
-function reconstruct(pp::T, di) where T
+function reconstruct(pp::T, di; T_new = T) where T
     if pp isa AbstractDict
         pp = deepcopy(pp)
         for (k,v) in di
-            !haskey(pp, k) && error("Field $k not in type $T")
+            !haskey(pp, k) && error("Field $k not in type $T_new")
             pp[k] = v
         end
         return pp
     else
         di = !isa(di, AbstractDict) ? Dict(di) : copy(di)
-        ns = fieldnames(T)
+        ns = fieldnames(T_new)
         args = []
         for (i,n) in enumerate(ns)
             push!(args, pop!(di, n, getfield(pp, n)))
         end
-        length(di)!=0 && error("Fields $(keys(di)) not in type $T")
-        return pp isa NamedTuple ? T(Tuple(args)) : T(args...)
+        length(di)!=0 && error("Fields $(keys(di)) not in type $T_new")
+        return pp isa NamedTuple ? T_new(Tuple(args)) : T_new(args...)
     end
 end
 reconstruct(pp; kws...) = reconstruct(pp, kws)
+
+
+"""
+reconstruct with type overriding
+
+```jldoctest
+julia> using Parameters
+
+julia> @with_kw struct Foo{T <: VecOrMat{Float64}}
+            vm::T
+            x::Float64
+            y::Float64
+        end
+
+julia> a = Foo{Vector{Float64}}(vm = [1,2,3], x = 1, y = 10)
+Foo{Array{Float64,1}}
+  vm: Array{Float64}((3,)) [1.0, 2.0, 3.0]
+  x: Float64 1.0
+  y: Float64 10.0
+
+julia> reconstruct_to(a, Foo{Matrix{Float64}}; vm = [1 2;3 4], x = 3)
+Foo{Array{Float64,2}}
+  vm: Array{Float64}((2, 2)) [1.0 2.0; 3.0 4.0]
+  x: Float64 3.0
+  y: Float64 10.0
+```
+"""
+reconstruct_to(pp, T_new; kws...) = reconstruct(pp, kws; T_new = T_new)
 
 
 ###########################
