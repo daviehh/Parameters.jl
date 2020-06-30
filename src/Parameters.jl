@@ -220,23 +220,24 @@ julia> b = reconstruct(a, b=99)
 A(3, 99)
 ```
 """
-function reconstruct(pp::T, di) where T
+function reconstruct(pp::T, di; Tov = nothing) where T
+    T_new = isnothing(Tov) ? T : Tov
     if pp isa AbstractDict
         pp = deepcopy(pp)
         for (k,v) in di
-            !haskey(pp, k) && error("Field $k not in type $T")
+            !haskey(pp, k) && error("Field $k not in type $T_new")
             pp[k] = v
         end
         return pp
     else
         di = !isa(di, AbstractDict) ? Dict(di) : copy(di)
-        ns = fieldnames(T)
+        ns = fieldnames(T_new)
         args = []
         for (i,n) in enumerate(ns)
             push!(args, pop!(di, n, getfield(pp, n)))
         end
-        length(di)!=0 && error("Fields $(keys(di)) not in type $T")
-        return pp isa NamedTuple ? T(Tuple(args)) : T(args...)
+        length(di)!=0 && error("Fields $(keys(di)) not in type $T_new")
+        return pp isa NamedTuple ? T_new(Tuple(args)) : T_new(args...)
     end
 end
 reconstruct(pp; kws...) = reconstruct(pp, kws)
